@@ -36,6 +36,7 @@ contract Raffle is VRFConsumerBaseV2Plus{
     /** Errors */
     error Raffle__NotEnoughEth();
     error Raffle__TransferFailed();
+    error Raffle__RaffleNotOpen();
 
     /* Type declarations */
     enum RaffleState {
@@ -82,6 +83,9 @@ contract Raffle is VRFConsumerBaseV2Plus{
         if(msg.value < i_entranceFee) {
             revert Raffle__NotEnoughEth();
         }
+        if(s_raffleState != RaffleState.OPEN) {
+            revert Raffle__RaffleNotOpen();
+        }
         s_players.push(payable(msg.sender));
         emit RaffleEntered(msg.sender);
     }
@@ -90,6 +94,9 @@ contract Raffle is VRFConsumerBaseV2Plus{
         if(block.timestamp - s_lastTimeStamp < i_interval) {
             revert();
         }
+
+        s_raffleState = RaffleState.CALCULATING;
+
         uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_gasLane,
@@ -110,6 +117,7 @@ contract Raffle is VRFConsumerBaseV2Plus{
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
+        s_raffleState = RaffleState.OPEN; 
         (bool success,) = recentWinner.call{value: address(this).balance}("");
         if (!success){
             revert Raffle__TransferFailed();
