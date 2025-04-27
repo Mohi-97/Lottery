@@ -36,6 +36,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     error Raffle__NotEnoughEth();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
+    error Raffle__UpkeepNotNedded(uint256 balance, uint256 playersLengh, uint256 raffleState);
 
     /* Type declarations */
     enum RaffleState {
@@ -109,12 +110,12 @@ contract Raffle is VRFConsumerBaseV2Plus {
     function performUpkeep(bytes calldata /* performData */) external {
         (bool upKeepNeeded, ) = checkUpkeep("");
         if (!upKeepNeeded) {
-            revert();
+            revert Raffle__UpkeepNotNedded(address(this).balance, s_players.length, uint256(s_raffleState));
         }
 
         s_raffleState = RaffleState.CALCULATING;
 
-        uint256 requestId = s_vrfCoordinator.requestRandomWords(
+        s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_gasLane,
                 subId: i_subscriptionId,
@@ -126,7 +127,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         );
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+    function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
